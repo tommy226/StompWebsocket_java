@@ -36,7 +36,7 @@ public class MainActivity extends AppCompatActivity {
 
         connectStomp();
 
-        sendMessage("헬로");
+        sendMessage("헬로 성빈");
     }
 
     private void connectStomp(){
