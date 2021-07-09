@@ -3,7 +3,10 @@ package com.sungbin.stompclient_java;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.util.Log;
+import android.view.View;
+import android.widget.Toast;
 
 import com.google.gson.Gson;
 import com.sungbin.stompclient_java.databinding.ActivityMainBinding;
@@ -18,7 +21,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
 
     private static final String SOCKET_URL = "wss://varlos-smartwork.com/websocket";   // http = ws로 시작하며 https = wss로 시작
-    private static final String REQUEST_MESSAGE = "/socket/message/";                  // 소켓 주소
+    private static final String MSSAGE_DESTINATION= "/socket/message";                  // 소켓 주소
     private static final int MESSAGE = 0;
 
     private ActivityMainBinding binding;
@@ -34,12 +37,25 @@ public class MainActivity extends AppCompatActivity {
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        connectStomp();
+        String room =  getIntent().getStringExtra("room");
+        String name = getIntent().getStringExtra("name");
 
-        sendMessage("헬로 성빈");
+        connectStomp(room);
+
+        binding.sendBtn.setOnClickListener(v -> {
+            String message = binding.messageEdit.getText().toString();
+
+            if (!TextUtils.isEmpty(message)) {
+                sendMessage(name, message, room);
+                binding.messageEdit.setText("");
+            }else{
+                Toast.makeText(this, "메세지를 입력해주세요", Toast.LENGTH_SHORT).show();
+            }
+
+        });
     }
 
-    private void connectStomp(){
+    private void connectStomp(String room){
         mStompClient = Stomp.over(Stomp.ConnectionProvider.OKHTTP, SOCKET_URL);
         mStompClient.lifecycle().subscribe(lifecycleEvent -> {
             switch (lifecycleEvent.getType()) {
@@ -50,12 +66,11 @@ public class MainActivity extends AppCompatActivity {
 
                 case ERROR:
                     Log.i(TAG, "Error", lifecycleEvent.getException());
-
+                    connectStomp(room);
                     break;
 
                 case CLOSED:
                     Log.i(TAG, "Stomp connection closed");
-
                     break;
 
                 case FAILED_SERVER_HEARTBEAT:
@@ -64,7 +79,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        mStompClient.topic("/socket/message" + "/" + "hello").subscribe(stompMessage -> {
+        mStompClient.topic(MSSAGE_DESTINATION + "/" + room).subscribe(stompMessage -> {
             Log.d(TAG, "receive messageData :" + stompMessage.getPayload());
             HashMap<Integer, String> stompData = new HashMap<>();
             stompData.put(MESSAGE, stompMessage.getPayload());
@@ -74,12 +89,12 @@ public class MainActivity extends AppCompatActivity {
         mStompClient.connect();
     }
 
-    private void sendMessage(String message){
-        MessageVO messageVO = new MessageVO("문성빈", message);
-        String messageData = gson.toJson(messageVO);
+    private void sendMessage(String name, String message, String room){
+        MessageVO messageVO = new MessageVO(name, message);
+        String messageJson = gson.toJson(messageVO);
 
-        mStompClient.send("/message" + "/" + "hello", messageData).subscribe();
-        Log.d(TAG, "send messageData : " + messageData);
+        mStompClient.send(MSSAGE_DESTINATION + "/" + room, messageJson).subscribe();
+        Log.d(TAG, "send messageData : " + messageJson);
     }
 
     @Override
