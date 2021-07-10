@@ -41,4 +41,6 @@ name은 사용자 계정이 된다.
 
 
 ##### 참조
-[stomp github](https://github.com/NaikSoftware/StompProtocolAndroid" link")
+[stomp github][link]
+
+[link]: https://github.com/NaikSoftware/StompProtocolAndroid
