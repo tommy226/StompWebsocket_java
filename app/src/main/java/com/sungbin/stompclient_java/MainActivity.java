@@ -1,16 +1,23 @@
 package com.sungbin.stompclient_java;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
 
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.text.TextUtils;
 import android.util.Log;
-import android.view.View;
 import android.widget.Toast;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.sungbin.stompclient_java.adapter.MessageAdapter;
 import com.sungbin.stompclient_java.databinding.ActivityMainBinding;
+import com.sungbin.stompclient_java.vo.MessageVO;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.concurrent.ArrayBlockingQueue;
 
@@ -18,41 +25,71 @@ import ua.naiksoftware.stomp.Stomp;
 import ua.naiksoftware.stomp.StompClient;
 
 public class MainActivity extends AppCompatActivity {
+    public static final int MY = 1000;                                                 // 메세지 전송자 구분
+    public static final int OTHER = 1001;
+
     private static final String TAG = MainActivity.class.getSimpleName();
 
     private static final String SOCKET_URL = "wss://varlos-smartwork.com/websocket";   // http = ws로 시작하며 https = wss로 시작
     private static final String MSSAGE_DESTINATION= "/socket/message";                  // 소켓 주소
-    private static final int MESSAGE = 0;
+
+    private static final int MESSAGE = 0;                                               // 핸들러 메세지 타입
 
     private ActivityMainBinding binding;
 
     private StompClient mStompClient;
 
-    private ArrayBlockingQueue<HashMap<Integer, String>> gWebSocketData = new ArrayBlockingQueue<>(10);
-
     private Gson gson = new Gson();
+
+    private Handler mHandler;
+    private MessageAdapter adapter;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
+        initRecycler();
+
         String room =  getIntent().getStringExtra("room");
         String name = getIntent().getStringExtra("name");
 
         connectStomp(room);
 
-        binding.sendBtn.setOnClickListener(v -> {
-            String message = binding.messageEdit.getText().toString();
+        binding.sendBtn.setOnClickListener(v -> {                               // 메세지 전송
+            String content = binding.messageEdit.getText().toString();
 
-            if (!TextUtils.isEmpty(message)) {
-                sendMessage(name, message, room);
+            if (!TextUtils.isEmpty(content)) {
+                String time = new SimpleDateFormat("k:mm").format(new Date(System.currentTimeMillis()));    // 현재 시간
+                sendMessage(name, content, time, room);
                 binding.messageEdit.setText("");
             }else{
                 Toast.makeText(this, "메세지를 입력해주세요", Toast.LENGTH_SHORT).show();
             }
 
         });
+
+        mHandler = new Handler(msg -> {                                         // stomp 메세지 핸들러 처리
+           switch (msg.what){
+               case MESSAGE:
+                   Log.d(TAG, "Messsage in :"+ msg.obj.toString());
+                   MessageVO messageVO = gson.fromJson(String.valueOf(msg.obj), MessageVO.class);
+
+                   if(messageVO.getName().equals(name)) messageVO.setType(MY);      // 메세지 객체 타입 비교
+                   else messageVO.setType(OTHER);
+
+                   adapter.add(messageVO);
+                   binding.recyclerview.smoothScrollToPosition(adapter.getItemCount());
+                   break;
+           }
+           return false;
+        });
+    }
+
+    private void initRecycler(){
+        adapter = new MessageAdapter();
+        binding.recyclerview.setLayoutManager(new LinearLayoutManager(this));
+        binding.recyclerview.setAdapter(adapter);
     }
 
     private void connectStomp(String room){
@@ -79,18 +116,19 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        mStompClient.topic(MSSAGE_DESTINATION + "/" + room).subscribe(stompMessage -> {
+        mStompClient.topic(MSSAGE_DESTINATION + "/" + room).subscribe(stompMessage -> {     // 구독 메세지 handler 전달
             Log.d(TAG, "receive messageData :" + stompMessage.getPayload());
-            HashMap<Integer, String> stompData = new HashMap<>();
-            stompData.put(MESSAGE, stompMessage.getPayload());
-            gWebSocketData.put(stompData);
+            Message msg = new Message();
+            msg.what = MESSAGE;
+            msg.obj = stompMessage.getPayload();
+            mHandler.sendMessage(msg);
         });
 
         mStompClient.connect();
     }
 
-    private void sendMessage(String name, String message, String room){
-        MessageVO messageVO = new MessageVO(name, message);
+    private void sendMessage(String name, String content, String time, String room){                                 // 구독 하는 방과 같은 주소로 메세지 전송
+        MessageVO messageVO = new MessageVO(name, content, time);
         String messageJson = gson.toJson(messageVO);
 
         mStompClient.send(MSSAGE_DESTINATION + "/" + room, messageJson).subscribe();
@@ -101,5 +139,11 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         mStompClient.disconnect();
         super.onDestroy();
+    }
+
+    @Override
+    public void onBackPressed() {
+        super.onBackPressed();
+        finish();
     }
 }
