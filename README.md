@@ -5,7 +5,7 @@ stomp websocket client 심플 메세지 (java)
 ### Library
 
 * stomp websocket : 메세지 소켓 통신
-* RXjava, RXandroid : 구독 필요\
+* RXjava, RXandroid : 구독 필요
 * Gson : json 객체 클래스 컨버팅
 
 사용자는 방과 이름을 입력하여 채팅방에 참가한다.
