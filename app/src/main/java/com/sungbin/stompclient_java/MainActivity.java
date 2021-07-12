@@ -5,6 +5,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.Message;
 import android.text.TextUtils;
 import android.util.Log;
@@ -30,7 +31,7 @@ public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = MainActivity.class.getSimpleName();
 
-    private static final String SOCKET_URL = "wss://varlos-smartwork.com/websocket";   // http = ws로 시작하며 https = wss로 시작
+    private static final String SOCKET_URL = "wss://Your Url/websocket";   // http = ws로 시작하며 https = wss로 시작
     private static final String MSSAGE_DESTINATION= "/socket/message";                  // 소켓 주소
 
     private static final int MESSAGE = 0;                                               // 핸들러 메세지 타입
@@ -69,7 +70,7 @@ public class MainActivity extends AppCompatActivity {
 
         });
 
-        mHandler = new Handler(msg -> {                                         // stomp 메세지 핸들러 처리
+        mHandler = new Handler(Looper.getMainLooper(), msg -> {                                         // stomp 메세지 핸들러 처리
            switch (msg.what){
                case MESSAGE:
                    Log.d(TAG, "Messsage in :"+ msg.obj.toString());
